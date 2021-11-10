@@ -1,8 +1,8 @@
 [package]
-name = "bevy_game" # ToDo
+name = "rabbit_garden"
 version = "0.1.0"
 publish = false
-authors = ["Niklas Eicker <git@nikl.me>"] # ToDo: you are the author ;)
+authors = ["Rabbit Garden Developers"]
 edition = "2018"
 
 [profile.dev.package."*"]
@@ -42,6 +42,7 @@ dev = [
 bevy = { version = "0.5.0", default-features = false }
 game_plugin = { path = "game_plugin" }
 winit = "0.24.0"
+tracing-subscriber = "0.2.18"
 
 bevy_webgl2 = { version = "0.5.0", optional = true }
 
