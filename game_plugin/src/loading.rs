@@ -1,7 +1,6 @@
 use crate::GameState;
 use bevy::prelude::*;
 use bevy_asset_loader::{AssetCollection, AssetLoader};
-use bevy_kira_audio::AudioSource;
 
 pub struct LoadingPlugin;
 
@@ -35,4 +34,6 @@ pub struct AudioAssets {
 pub struct TextureAssets {
     #[asset(path = "textures/tiles.png")]
     pub texture_tiles: Handle<Texture>,
+    #[asset(path = "textures/fence_tiles.png")]
+    pub texture_fence_tiles: Handle<Texture>,
 }
