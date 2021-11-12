@@ -25,6 +25,12 @@ impl Plugin for MapPlugin {
         app.add_system_set(
             SystemSet::on_exit(TurnState::RoundSetup)
                 .with_system(spawn_random_fences.system())
+        );
+        app.add_system_set(
+            SystemSet::on_enter(TurnState::StartOfRound)
+                // NOTE: This is here rather than on RoundSetup because I need
+                // a hard sync between spawn_random_fences and spawn_random_plants
+                // There could be a better way to do that.
                 .with_system(spawn_random_plants.system())
         );
         app.add_system_set(
@@ -201,6 +207,7 @@ fn spawn_random_fences(
                     GameLayer::Fences,
                 );
                 commands.entity(e.unwrap()).insert(Fence);
+                map_query.notify_chunk_for_tile(position, 0u16, GameLayer::Fences);
             }
        }
     }
