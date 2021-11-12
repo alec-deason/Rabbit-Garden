@@ -1,0 +1,22 @@
+clock=Sine(4*24)
+seq=abc[
+X:1658
+T:6 Handed Reel
+F:http://www.vwml.org/record/CJS2/10/1658
+S:William Kimber of Oxford
+Z:transcribed by Alice Baillie
+M:C
+L:1/8
+K:G
+BA | G2 G2 D2 GB | AGFE D2 c2 | BcdB edcB | AGFE DEFD | G2 G2 D2 GB | AGFE D2 c2 | Bcdg ecAF | 
+G2 G2 G2 || Bc |  d2 d2 GB d2 | e2 e2 A2  Bc | dedB GFGB | AGFE DEFD | G2 G2 D2 GB | AGFE D2 c2 | Bcdg ecAF | G2 G2 G2 ||
+](clock)
+meter=seq[1 0 0.8 0](clock)
+
+voice=PennyWhistle(seq*4, 0.1, 0, 0.73)
+(reverb,2,voice*0.1)
+(reverb,3,voice*0.1)
+
+reverb=Reverb(0.1,0.1)
+(output,0,reverb|0)
+(output,1,reverb|1)

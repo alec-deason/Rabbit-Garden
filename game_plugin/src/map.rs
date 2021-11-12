@@ -231,7 +231,6 @@ fn spawn_random_plants(
                         GameLayer::Plants,
                     );
                     commands.entity(e.unwrap()).insert(Plant);
-                    println!("{:?}", position);
                     map_query.notify_chunk_for_tile(position, 0u16, GameLayer::Plants);
                 }
             }

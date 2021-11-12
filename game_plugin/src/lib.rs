@@ -12,6 +12,8 @@ use crate::map::MapPlugin;
 use crate::pests::PestPlugin;
 use crate::turn_structure::TurnPlugin;
 
+use game_music::MusicPlugin;
+
 use bevy::app::AppBuilder;
 #[cfg(debug_assertions)]
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
@@ -34,6 +36,7 @@ impl Plugin for GamePlugin {
             .add_plugin(ActionsPlugin)
             .add_plugin(PestPlugin)
             .add_plugin(TurnPlugin)
+            .add_plugin(MusicPlugin)
             .add_plugin(MapPlugin);
 
         #[cfg(debug_assertions)]
