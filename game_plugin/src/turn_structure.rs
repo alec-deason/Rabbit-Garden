@@ -15,7 +15,8 @@ pub enum TurnState {
     RoundSetup,
     StartOfRound,
     PlayerTurn,
-    PestTurn,
+    PestTurnA,
+    PestTurnB,
     EndOfRound,
     RoundCleanup,
 }
@@ -39,13 +40,16 @@ fn progress_turn(
         TurnState::Idle => state.set(TurnState::RoundSetup).unwrap(),
         TurnState::RoundSetup => state.set(TurnState::StartOfRound).unwrap(),
         TurnState::StartOfRound => state.set(TurnState::PlayerTurn).unwrap(),
+        TurnState::EndOfRound => state.set(TurnState::RoundCleanup).unwrap(),
+        TurnState::RoundCleanup => state.set(TurnState::RoundSetup).unwrap(),
+        TurnState::PestTurnA => state.set(TurnState::PestTurnB).unwrap(),
+        TurnState::PestTurnB => state.set(TurnState::PestTurnA).unwrap(),
         _ => {
             // These inner states should only move forward when the player takes the action necessary to end their turn
             for event in keyboard_input_events.iter() {
                 if event.state == ElementState::Pressed && event.key_code == Some(KeyCode::Space) {
                 match state.current() {
-                        TurnState::PlayerTurn => state.set(TurnState::PestTurn).unwrap(),
-                        TurnState::PestTurn=> state.set(TurnState::PlayerTurn).unwrap(),
+                        TurnState::PlayerTurn => state.set(TurnState::PestTurnA).unwrap(),
                         _ => ()
                     }
                 }

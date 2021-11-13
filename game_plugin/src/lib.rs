@@ -4,6 +4,7 @@ mod map;
 mod pests;
 mod turn_structure;
 mod main_ui;
+mod scoring;
 
 use crate::{
     loading::LoadingPlugin,
@@ -12,6 +13,7 @@ use crate::{
     pests::PestPlugin,
     turn_structure::TurnPlugin,
     main_ui::MainUiPlugin,
+    scoring::ScoringPlugin,
 };
 
 use game_music::MusicPlugin;
@@ -40,6 +42,7 @@ impl Plugin for GamePlugin {
             .add_plugin(PestPlugin)
             .add_plugin(TurnPlugin)
             .add_plugin(MusicPlugin)
+            .add_plugin(ScoringPlugin)
             .add_plugin(MapPlugin);
 
     }
