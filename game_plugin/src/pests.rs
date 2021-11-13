@@ -22,6 +22,10 @@ impl Plugin for PestPlugin {
                 .with_system(spawn_rabbits.system())
         );
         app.add_system_set(
+            SystemSet::on_enter(TurnState::RoundCleanup)
+                .with_system(despawn_rabbits.system())
+        );
+        app.add_system_set(
             SystemSet::on_enter(TurnState::PestTurnA)
                 .with_system(rabbit_movement.system())
                 .with_system(maybe_end_pest_turn.system())
@@ -150,5 +154,21 @@ fn spawn_rabbits(
         );
         commands.entity(e.unwrap()).insert(Rabbit::default());
         map_query.notify_chunk_for_tile(position, 0u16, GameLayer::Pests);
+    }
+}
+
+fn despawn_rabbits(
+    mut commands: Commands,
+    mut rabbit_query: Query<&TilePos, With<Rabbit>>,
+    mut map_query: MapQuery,
+) {
+    for pos in rabbit_query.iter() {
+        map_query.despawn_tile(
+            &mut commands,
+            *pos,
+            0u16,
+            GameLayer::Pests
+        );
+        map_query.notify_chunk_for_tile(*pos, 0u16, GameLayer::Pests);
     }
 }

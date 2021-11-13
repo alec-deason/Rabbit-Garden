@@ -2,6 +2,7 @@ mod loading;
 mod menu;
 mod map;
 mod pests;
+mod plants;
 mod turn_structure;
 mod main_ui;
 mod scoring;
@@ -11,6 +12,7 @@ use crate::{
     menu::MenuPlugin,
     map::MapPlugin,
     pests::PestPlugin,
+    plants::PlantPlugin,
     turn_structure::TurnPlugin,
     main_ui::MainUiPlugin,
     scoring::ScoringPlugin,
@@ -40,6 +42,7 @@ impl Plugin for GamePlugin {
             .add_plugin(LoadingPlugin)
             .add_plugin(MenuPlugin)
             .add_plugin(PestPlugin)
+            .add_plugin(PlantPlugin)
             .add_plugin(TurnPlugin)
             .add_plugin(MusicPlugin)
             .add_plugin(ScoringPlugin)

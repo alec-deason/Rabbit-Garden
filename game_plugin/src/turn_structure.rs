@@ -23,10 +23,15 @@ pub enum TurnState {
 
 impl Plugin for TurnPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_state(TurnState::Idle)
+        app
+            .add_state(TurnState::Idle)
            .add_system_set(
                SystemSet::on_update(GameState::Playing)
                    .with_system(progress_turn.system())
+           )
+           .add_system_set(
+               SystemSet::on_exit(GameState::Playing)
+                   .with_system(reset_turn_state.system())
            );
     }
 }
@@ -56,4 +61,10 @@ fn progress_turn(
             }
         }
     }
+}
+
+fn reset_turn_state(
+    mut state: ResMut<State<TurnState>>,
+) {
+    state.set(TurnState::Idle);
 }

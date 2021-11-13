@@ -7,7 +7,8 @@ use bevy_egui::{egui, EguiContext, EguiPlugin};
 use bevy_ecs_tilemap::prelude::*;
 use crate::{
     GameState,
-    map::{MAP_SIZE, TILE_SIZE, GameLayer, Plant, Fence},
+    map::{MAP_SIZE, TILE_SIZE, GameLayer, Fence},
+    plants::{Plant, RoundsTillMature},
     loading::TextureAssets,
 };
 
@@ -22,6 +23,7 @@ impl Plugin for MainUiPlugin {
         app.add_system_set(
             SystemSet::on_update(GameState::Playing)
                 .with_system(main_ui.system())
+                .with_system(quit_to_menu.system())
         );
     }
 }
@@ -135,7 +137,15 @@ fn main_ui(
                         );
                         map_query.notify_chunk_for_tile(tile_pos, 0u16, draggable.game_layer);
                         match draggable.game_layer {
-                            GameLayer::Plants => { commands.entity(e.unwrap()).insert(Plant); },
+                            GameLayer::Plants => {
+
+                                commands.entity(e.unwrap()).insert(Plant);
+                                if draggable.name == "pumpkin" {
+                                    commands.entity(e.unwrap()).insert(RoundsTillMature(4));
+                                } else {
+                                    commands.entity(e.unwrap()).insert(RoundsTillMature(1));
+                                }
+                            },
                             GameLayer::Fences => { commands.entity(e.unwrap()).insert(Fence); },
                             _ => ()
                         }
@@ -144,4 +154,13 @@ fn main_ui(
             }
         }
 
+}
+
+fn quit_to_menu(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut state: ResMut<State<GameState>>,
+) {
+    if keyboard_input.just_pressed(KeyCode::Escape) {
+        state.set(GameState::Menu);
+    }
 }

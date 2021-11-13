@@ -17,12 +17,12 @@ impl Plugin for MapPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_plugin(TilemapPlugin);
         app.add_system_set(
-            SystemSet::on_enter(TurnState::RoundSetup)
+            SystemSet::on_enter(GameState::Playing)
                 .with_system(spawn_map.system())
                 .with_system(spawn_camera.system())
         );
         app.add_system_set(
-            SystemSet::on_enter(TurnState::RoundCleanup)
+            SystemSet::on_exit(GameState::Playing)
                 .with_system(despawn_map.system())
         );
         app.add_system_set(
@@ -50,7 +50,6 @@ impl Into<u16> for GameLayer {
 impl bevy_ecs_tilemap::prelude::LayerId for GameLayer {}
 
 pub struct Fence;
-pub struct Plant;
 
 fn spawn_camera(mut commands: Commands) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
