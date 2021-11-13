@@ -1,16 +1,18 @@
-mod actions;
 mod loading;
 mod menu;
 mod map;
 mod pests;
 mod turn_structure;
+mod main_ui;
 
-use crate::actions::ActionsPlugin;
-use crate::loading::LoadingPlugin;
-use crate::menu::MenuPlugin;
-use crate::map::MapPlugin;
-use crate::pests::PestPlugin;
-use crate::turn_structure::TurnPlugin;
+use crate::{
+    loading::LoadingPlugin,
+    menu::MenuPlugin,
+    map::MapPlugin,
+    pests::PestPlugin,
+    turn_structure::TurnPlugin,
+    main_ui::MainUiPlugin,
+};
 
 use game_music::MusicPlugin;
 
@@ -31,9 +33,10 @@ pub struct GamePlugin;
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_state(GameState::Loading)
+            .add_plugin(bevy_egui::EguiPlugin)
+            .add_plugin(MainUiPlugin)
             .add_plugin(LoadingPlugin)
             .add_plugin(MenuPlugin)
-            .add_plugin(ActionsPlugin)
             .add_plugin(PestPlugin)
             .add_plugin(TurnPlugin)
             .add_plugin(MusicPlugin)

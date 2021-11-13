@@ -10,6 +10,9 @@ use rand::prelude::*;
 
 pub struct MapPlugin;
 
+pub const MAP_SIZE: u32 = 16;
+pub const TILE_SIZE: u32 = 31;
+
 impl Plugin for MapPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_plugin(TilemapPlugin);
@@ -21,17 +24,6 @@ impl Plugin for MapPlugin {
         app.add_system_set(
             SystemSet::on_enter(TurnState::RoundCleanup)
                 .with_system(despawn_map.system())
-        );
-        app.add_system_set(
-            SystemSet::on_exit(TurnState::RoundSetup)
-                .with_system(spawn_random_fences.system())
-        );
-        app.add_system_set(
-            SystemSet::on_enter(TurnState::StartOfRound)
-                // NOTE: This is here rather than on RoundSetup because I need
-                // a hard sync between spawn_random_fences and spawn_random_plants
-                // There could be a better way to do that.
-                .with_system(spawn_random_plants.system())
         );
         app.add_system_set(
             SystemSet::on_update(GameState::Playing)
@@ -70,6 +62,9 @@ fn spawn_map(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut map_query: MapQuery,
 ) {
+
+    let chunks = MAP_SIZE/8;
+
     let base_material_handle = materials.add(textures.texture_tiles.clone().into());
     let fence_material_handle = materials.add(textures.texture_fence_tiles.clone().into());
 
@@ -80,10 +75,10 @@ fn spawn_map(
     let (mut layer_builder, _) = LayerBuilder::new(
         &mut commands,
         LayerSettings::new(
-            MapSize(2, 2),
+            MapSize(chunks, chunks),
             ChunkSize(8, 8),
-            TileSize(64.0, 64.0),
-            TextureSize(192.0, 128.0),
+            TileSize(TILE_SIZE as f32, TILE_SIZE as f32),
+            TextureSize(3.0*TILE_SIZE as f32, 2.0*TILE_SIZE as f32),
         ),
         0u16,
         GameLayer::Dirt,
@@ -112,10 +107,10 @@ fn spawn_map(
     let (layer_builder, _) = LayerBuilder::<TileBundle>::new(
         &mut commands,
         LayerSettings::new(
-            MapSize(2, 2),
+            MapSize(chunks, chunks),
             ChunkSize(8, 8),
-            TileSize(64.0, 64.0),
-            TextureSize(192.0, 128.0),
+            TileSize(TILE_SIZE as f32, TILE_SIZE as f32),
+            TextureSize(3.0*TILE_SIZE as f32, 2.0*TILE_SIZE as f32),
         ),
         0u16,
         GameLayer::Pests,
@@ -131,10 +126,10 @@ fn spawn_map(
     let (layer_builder, _) = LayerBuilder::<TileBundle>::new(
         &mut commands,
         LayerSettings::new(
-            MapSize(2, 2),
+            MapSize(chunks, chunks),
             ChunkSize(8, 8),
-            TileSize(64.0, 64.0),
-            TextureSize(256.0, 256.0),
+            TileSize(TILE_SIZE as f32, TILE_SIZE as f32),
+            TextureSize(4.0*TILE_SIZE as f32, 4.0*TILE_SIZE as f32),
         ),
         0u16,
         GameLayer::Fences,
@@ -148,10 +143,10 @@ fn spawn_map(
     let (layer_builder, _) = LayerBuilder::<TileBundle>::new(
         &mut commands,
         LayerSettings::new(
-            MapSize(2, 2),
+            MapSize(chunks, chunks),
             ChunkSize(8, 8),
-            TileSize(64.0, 64.0),
-            TextureSize(192.0, 128.0),
+            TileSize(TILE_SIZE as f32, TILE_SIZE as f32),
+            TextureSize(3.0*TILE_SIZE as f32, 2.0*TILE_SIZE as f32),
         ),
         0u16,
         GameLayer::Plants,
@@ -187,60 +182,5 @@ fn update_fence_autotile(
         }
         tile.texture_index = idx;
         map_query.notify_chunk_for_tile(*pos, 0u16, GameLayer::Fences);
-    }
-}
-
-fn spawn_random_fences(
-    mut commands: Commands,
-    mut map_query: MapQuery,
-) {
-    let mut rng = thread_rng();
-    for x in 0..14 {
-        for y in 0..14 {
-            if rng.gen::<f32>() < 0.33 {
-                let position = TilePos(x,y);
-                let e = map_query.set_tile(
-                    &mut commands,
-                    position,
-                    Tile::default(),
-                    0u16,
-                    GameLayer::Fences,
-                );
-                commands.entity(e.unwrap()).insert(Fence);
-                map_query.notify_chunk_for_tile(position, 0u16, GameLayer::Fences);
-            }
-       }
-    }
-}
-
-fn spawn_random_plants(
-    mut commands: Commands,
-    mut map_query: MapQuery,
-) {
-    let mut rng = thread_rng();
-    for x in 0..14 {
-        for y in 0..15 {
-            if rng.gen::<f32>() < 0.1 {
-                let position = TilePos(x,y);
-                if map_query.get_tile_entity(
-                    position,
-                    0u16,
-                    GameLayer::Fences
-                ).is_err() {
-                    let e = map_query.set_tile(
-                        &mut commands,
-                        position,
-                        Tile {
-                            texture_index: rng.gen_range(2..4),
-                            ..Default::default()
-                        },
-                        0u16,
-                        GameLayer::Plants,
-                    );
-                    commands.entity(e.unwrap()).insert(Plant);
-                    map_query.notify_chunk_for_tile(position, 0u16, GameLayer::Plants);
-                }
-            }
-       }
     }
 }

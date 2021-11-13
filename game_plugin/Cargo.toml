@@ -25,3 +25,4 @@ bevy_asset_loader = { version = "0.6.0" }
 rand = "0.8.3"
 bevy_ecs_tilemap = { git = "https://github.com/alec-deason/bevy_ecs_tilemap.git" }
 game_music = { path = "../game_music" }
+bevy_egui = { git = "https://github.com/mvlabat/bevy_egui.git" }
