@@ -23,6 +23,7 @@ impl Plugin for MainUiPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<CursorPosition>();
         app.init_resource::<TileQueue>();
+        app.add_system(track_cursor.system());
         app.add_system_set(
             SystemSet::on_enter(GameState::Playing)
                 .with_system(setup_queue.system())
@@ -82,7 +83,49 @@ impl PlacableTile {
         }
     }
 
+    fn can_place(&self, pos: bevy_ecs_tilemap::TilePos, map_query: &MapQuery) -> bool {
+        match self {
+            PlacableTile::Carrot |
+            PlacableTile::Pumpkin => {
+                map_query.get_tile_entity(
+                    pos,
+                    0u16,
+                    GameLayer::Fences
+                ).is_err() &&
+                map_query.get_tile_entity(
+                    pos,
+                    0u16,
+                    GameLayer::Plants
+                ).is_err()
+            }
+            PlacableTile::Fence => {
+                map_query.get_tile_entity(
+                    pos,
+                    0u16,
+                    GameLayer::Plants
+                ).is_err()
+            }
+        }
+    }
+
     fn place_on_map(&self, commands: &mut Commands, pos: bevy_ecs_tilemap::TilePos, map_query: &mut MapQuery) {
+            if let PlacableTile::Fence = self {
+                if map_query.get_tile_entity(
+                    pos,
+                    0u16,
+                    GameLayer::Fences
+                ).is_ok() {
+                    map_query.despawn_tile(
+                        commands,
+                        pos,
+                        0u16,
+                        GameLayer::Fences
+                    );
+                    map_query.notify_chunk_for_tile(pos, 0u16, GameLayer::Fences);
+                    return
+                }
+            }
+
             let e = map_query.set_tile(
                 commands,
                 pos,
@@ -197,15 +240,25 @@ fn quit_to_menu(
     }
 }
 
+fn track_cursor(
+    mut cursor_moved_events: EventReader<CursorMoved>,
+    mut cursor_position: ResMut<CursorPosition>,
+    windows: Res<Windows>,
+) {
+    let window = windows.get_primary().unwrap();
+    let window_size = Vec2::new(window.width() as f32, window.height() as f32);
+    for event in cursor_moved_events.iter() {
+        cursor_position.0 = event.position - window_size/2.0;
+    }
+}
+
 #[derive(Default)]
 struct CursorPosition(Vec2);
 fn place_tile(
     mut commands: Commands,
     textures: Res<TextureAssets>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    mut cursor_moved_events: EventReader<CursorMoved>,
-    mut cursor_position: ResMut<CursorPosition>,
-    windows: Res<Windows>,
+    cursor_position: Res<CursorPosition>,
     mut mouse_button_input_events: EventReader<MouseButtonInput>,
     map_transform_query: Query<&Transform, With<Map>>,
     mut queue: ResMut<TileQueue>,
@@ -213,24 +266,21 @@ fn place_tile(
     placables_query: Query<&PlacableTile>,
     mut state: ResMut<State<TurnState>>,
 ) {
-    let window = windows.get_primary().unwrap();
-    let window_size = Vec2::new(window.width() as f32, window.height() as f32);
-    for event in cursor_moved_events.iter() {
-        cursor_position.0 = event.position - window_size/2.0;
-    }
     for event in mouse_button_input_events.iter() {
         if event.button == MouseButton::Left && event.state == ElementState::Released {
             if let Ok(t) = map_transform_query.single() {
                 let tile = ((cursor_position.0 - t.translation.truncate()) / TILE_SIZE as f32).floor();
                 if tile.x > 1.0 && tile.x < MAP_SIZE as f32-2.0 && tile.y > 1.0 && tile.y < MAP_SIZE as f32-2.0 {
-                    let placable_entity = queue.0.remove(0);
-                    let e = PlacableTile::spawn_random(&mut commands, &textures, &mut materials, &mut thread_rng());
-                    queue.0.push(e);
-                    if let Ok(placable_tile) = placables_query.get(placable_entity) {
+                    if let Ok(placable_tile) = placables_query.get(queue.0[0]) {
                         let pos = bevy_ecs_tilemap::TilePos(tile.x as u32, tile.y as u32);
-                        placable_tile.place_on_map(&mut commands, pos, &mut map_query);
-                        commands.entity(placable_entity).despawn_recursive();
-                        state.set(TurnState::PestTurnA);
+                        if placable_tile.can_place(pos, &map_query) {
+                            let placable_entity = queue.0.remove(0);
+                            let e = PlacableTile::spawn_random(&mut commands, &textures, &mut materials, &mut thread_rng());
+                            queue.0.push(e);
+                            placable_tile.place_on_map(&mut commands, pos, &mut map_query);
+                            commands.entity(placable_entity).despawn_recursive();
+                            state.set(TurnState::PestTurnA);
+                        }
                     }
                 }
             }
