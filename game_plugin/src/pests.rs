@@ -7,7 +7,7 @@ use crate::{
 };
 use rand::prelude::*;
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Pest {
     pattern: Vec<IVec2>,
     move_idx: usize,
@@ -17,8 +17,8 @@ impl Pest {
     fn rightward_rabbit() -> Self {
         Self {
             pattern: vec![
-                IVec2::new(-1, 0),
-                IVec2::new(-1, 0),
+                IVec2::new(1, 0),
+                IVec2::new(1, 0),
                 IVec2::new(0, -1),
             ],
             move_idx: 0,
@@ -29,8 +29,8 @@ impl Pest {
     fn leftward_rabbit() -> Self {
         Self {
             pattern: vec![
-                IVec2::new(1, 0),
-                IVec2::new(1, 0),
+                IVec2::new(-1, 0),
+                IVec2::new(-1, 0),
                 IVec2::new(0, 1),
             ],
             move_idx: 0,
@@ -50,7 +50,7 @@ impl Pest {
         }
     }
 
-    fn upward_rabbit() -> Self {
+    fn downward_rabbit() -> Self {
         Self {
             pattern: vec![
                 IVec2::new(0, -1,),
@@ -189,7 +189,15 @@ fn move_idle_pests_in(
         );
         map_query.notify_chunk_for_tile(*pos, 0u16, GameLayer::Pests);
         let mut new_pos = pos.clone();
-        new_pos.0 -= 1;
+        if pos.0 == 0 {
+            new_pos.0 += 1;
+        } else if pos.0 == MAP_SIZE-1 {
+            new_pos.0 -= 1;
+        } else if pos.1 == 0 {
+            new_pos.1 += 1;
+        } else if pos.1 == MAP_SIZE-1 {
+            new_pos.1 -= 1;
+        }
         let e = map_query.set_tile(
             &mut commands,
             new_pos,
@@ -210,7 +218,7 @@ fn spawn_pests(
     mut map_query: MapQuery,
 ) {
     let mut rng = thread_rng();
-    let spawn_slots = vec![];
+    let mut spawn_slots = vec![];
     for i in 3..MAP_SIZE-2 {
         spawn_slots.push((0, i));
         spawn_slots.push((MAP_SIZE-1, i));
@@ -230,11 +238,11 @@ fn spawn_pests(
             0u16,
             GameLayer::Pests,
         );
-        if x == 0 {
+        if *x == 0 {
             commands.entity(e.unwrap()).insert(Pest::rightward_rabbit());
-        } else if x == MAP_SIZE-1 {
+        } else if *x == MAP_SIZE-1 {
             commands.entity(e.unwrap()).insert(Pest::leftward_rabbit());
-        } else if y == 0 {
+        } else if *y == 0 {
             commands.entity(e.unwrap()).insert(Pest::upward_rabbit());
         } else {
             commands.entity(e.unwrap()).insert(Pest::downward_rabbit());
