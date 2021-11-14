@@ -8,9 +8,59 @@ use crate::{
 use rand::prelude::*;
 
 #[derive(Copy, Clone, Debug, Default)]
-pub struct Rabbit {
+pub struct Pest {
+    pattern: Vec<IVec2>,
     move_idx: usize,
     ticks_since_move: usize,
+}
+impl Pest {
+    fn rightward_rabbit() -> Self {
+        Self {
+            pattern: vec![
+                IVec2::new(-1, 0),
+                IVec2::new(-1, 0),
+                IVec2::new(0, -1),
+            ],
+            move_idx: 0,
+            ticks_since_move: 0,
+        }
+    }
+
+    fn leftward_rabbit() -> Self {
+        Self {
+            pattern: vec![
+                IVec2::new(1, 0),
+                IVec2::new(1, 0),
+                IVec2::new(0, 1),
+            ],
+            move_idx: 0,
+            ticks_since_move: 0,
+        }
+    }
+
+    fn upward_rabbit() -> Self {
+        Self {
+            pattern: vec![
+                IVec2::new(0, 1,),
+                IVec2::new(0, 1,),
+                IVec2::new(1, 0),
+            ],
+            move_idx: 0,
+            ticks_since_move: 0,
+        }
+    }
+
+    fn upward_rabbit() -> Self {
+        Self {
+            pattern: vec![
+                IVec2::new(0, -1,),
+                IVec2::new(0, -1,),
+                IVec2::new(-1, 0),
+            ],
+            move_idx: 0,
+            ticks_since_move: 0,
+        }
+    }
 }
 pub struct IdlePest;
 
@@ -21,36 +71,32 @@ impl Plugin for PestPlugin {
         app.add_system_set(
             SystemSet::on_exit(TurnState::RoundSetup)
                 .with_system(move_idle_pests_in.system().label("move idle"))
-                .with_system(spawn_rabbits.system().after("move idle"))
+                .with_system(spawn_pests.system().after("move idle"))
         );
         app.add_system_set(
             SystemSet::on_enter(TurnState::RoundCleanup)
-                .with_system(despawn_rabbits.system())
+                .with_system(despawn_pests.system())
         );
         app.add_system_set(
             SystemSet::on_enter(TurnState::PestTurnA)
-                .with_system(rabbit_movement.system())
+                .with_system(pest_movement.system())
                 .with_system(maybe_end_pest_turn.system())
         );
     }
 }
 
-fn rabbit_movement(
+fn pest_movement(
     mut commands: Commands,
-    mut rabbit_query: Query<(Entity, &mut Rabbit, &mut TilePos), Without<IdlePest>>,
+    mut pest_query: Query<(Entity, &mut Pest, &mut TilePos), Without<IdlePest>>,
     mut map_query: MapQuery,
 ) {
     let mut current_positions = HashMap::with_capacity(10);
-    for (e, _, pos) in rabbit_query.iter_mut() {
+    for (e, _, pos) in pest_query.iter_mut() {
         current_positions.insert(*pos, e);
     }
-    for (e, mut rabbit, mut pos) in rabbit_query.iter_mut() {
-        let movement = [
-            IVec2::new(-1, 0),
-            IVec2::new(-1, 0),
-            IVec2::new(0, -1),
-        ][rabbit.move_idx];
-        rabbit.move_idx = (rabbit.move_idx + 1) % 3;
+    for (e, mut pest, mut pos) in pest_query.iter_mut() {
+        let movement = pest.pattern[pest.move_idx];
+        pest.move_idx = (pest.move_idx + 1) % 3;
         let new_pos = IVec2::new(pos.0 as i32, pos.1 as i32) + movement;
         if new_pos.x >= 0 && new_pos.y >= 0 && new_pos.x < MAP_SIZE as i32 && new_pos.y < MAP_SIZE as i32 {
             let new_pos = TilePos(new_pos.x as u32, new_pos.y as u32);
@@ -82,10 +128,10 @@ fn rabbit_movement(
                         0u16,
                         GameLayer::Pests
                     ).unwrap();
-                    let mut rabbit = rabbit.clone();
-                    rabbit.ticks_since_move = 0;
+                    let mut pest = pest.clone();
+                    pest.ticks_since_move = 0;
                     did_move = true;
-                    commands.entity(e).insert(rabbit);
+                    commands.entity(e).insert(pest);
                     map_query.notify_chunk_for_tile(new_pos, 0u16, GameLayer::Pests);
                     current_positions.insert(new_pos, e);
 
@@ -99,7 +145,7 @@ fn rabbit_movement(
                 }
             }
             if !did_move {
-                rabbit.ticks_since_move += 1;
+                pest.ticks_since_move += 1;
             }
         } else {
             map_query.despawn_tile(
@@ -115,14 +161,14 @@ fn rabbit_movement(
 
 fn maybe_end_pest_turn(
     mut state: ResMut<State<TurnState>>,
-    mut rabbit_query: Query<&Rabbit, Without<IdlePest>>,
+    mut pest_query: Query<&Pest, Without<IdlePest>>,
 ) {
-    for rabbit in rabbit_query.iter() {
-        if rabbit.ticks_since_move < 3 {
+    for pest in pest_query.iter() {
+        if pest.ticks_since_move < 3 {
             return
         }
     }
-    // If we've reached this point then every rabbit on the board
+    // If we've reached this point then every pest on the board
     // has been unable to move for a full cycle of their motion
     // pattern which means they are all permanently blocked and
     // the round can end.
@@ -131,10 +177,10 @@ fn maybe_end_pest_turn(
 
 fn move_idle_pests_in(
     mut commands: Commands,
-    mut rabbit_query: Query<(&Rabbit, &TilePos), With<IdlePest>>,
+    mut pest_query: Query<(&Pest, &TilePos), With<IdlePest>>,
     mut map_query: MapQuery,
 ) {
-    for (rabbit, pos) in rabbit_query.iter() {
+    for (pest, pos) in pest_query.iter() {
         map_query.despawn_tile(
             &mut commands,
             *pos,
@@ -154,20 +200,26 @@ fn move_idle_pests_in(
             0u16,
             GameLayer::Pests
         ).unwrap();
-        commands.entity(e).insert(rabbit.clone());
+        commands.entity(e).insert(pest.clone());
         map_query.notify_chunk_for_tile(new_pos, 0u16, GameLayer::Pests);
     }
 }
 
-fn spawn_rabbits(
+fn spawn_pests(
     mut commands: Commands,
     mut map_query: MapQuery,
 ) {
     let mut rng = thread_rng();
-    let spawn_slots:Vec<_> = (2..MAP_SIZE-2).collect();
+    let spawn_slots = vec![];
+    for i in 3..MAP_SIZE-2 {
+        spawn_slots.push((0, i));
+        spawn_slots.push((MAP_SIZE-1, i));
+        spawn_slots.push((i, 0));
+        spawn_slots.push((i, MAP_SIZE-1));
+    }
     let count = rng.gen_range(1..4);
-    for y in spawn_slots.choose_multiple(&mut rng, count) {
-        let mut position = TilePos(MAP_SIZE-1,*y);
+    for (x, y) in spawn_slots.choose_multiple(&mut rng, count) {
+        let mut position = TilePos(*x,*y);
         let e = map_query.set_tile(
             &mut commands,
             position,
@@ -178,18 +230,26 @@ fn spawn_rabbits(
             0u16,
             GameLayer::Pests,
         );
-        commands.entity(e.unwrap()).insert(Rabbit::default());
+        if x == 0 {
+            commands.entity(e.unwrap()).insert(Pest::rightward_rabbit());
+        } else if x == MAP_SIZE-1 {
+            commands.entity(e.unwrap()).insert(Pest::leftward_rabbit());
+        } else if y == 0 {
+            commands.entity(e.unwrap()).insert(Pest::upward_rabbit());
+        } else {
+            commands.entity(e.unwrap()).insert(Pest::downward_rabbit());
+        }
         commands.entity(e.unwrap()).insert(IdlePest);
         map_query.notify_chunk_for_tile(position, 0u16, GameLayer::Pests);
     }
 }
 
-fn despawn_rabbits(
+fn despawn_pests(
     mut commands: Commands,
-    mut rabbit_query: Query<&TilePos, (With<Rabbit>, Without<IdlePest>)>,
+    mut pest_query: Query<&TilePos, (With<Pest>, Without<IdlePest>)>,
     mut map_query: MapQuery,
 ) {
-    for pos in rabbit_query.iter() {
+    for pos in pest_query.iter() {
         map_query.despawn_tile(
             &mut commands,
             *pos,
