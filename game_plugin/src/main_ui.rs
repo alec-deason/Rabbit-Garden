@@ -23,6 +23,7 @@ impl Plugin for MainUiPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<CursorPosition>();
         app.init_resource::<TileQueue>();
+        app.init_resource::<PendingPlacement>();
         app.add_system(track_cursor.system());
         app.add_system_set(
             SystemSet::on_enter(GameState::Playing)
@@ -37,6 +38,7 @@ impl Plugin for MainUiPlugin {
         app.add_system_set(
             SystemSet::on_update(GameState::Playing)
                 .with_system(quit_to_menu.system())
+                .with_system(track_click_events.system())
         );
         app.add_system_set(
             SystemSet::on_update(TurnState::PlayerTurn)
@@ -264,34 +266,45 @@ fn track_cursor(
 }
 
 #[derive(Default)]
+struct PendingPlacement(Option<Vec2>);
+fn track_click_events(
+    mut mouse_button_input_events: EventReader<MouseButtonInput>,
+    cursor_position: Res<CursorPosition>,
+    mut pending_placement: ResMut<PendingPlacement>,
+) {
+    for event in mouse_button_input_events.iter() {
+        if event.button == MouseButton::Left && event.state == ElementState::Released {
+            pending_placement.0.replace(cursor_position.0);
+        }
+    }
+}
+
+#[derive(Default)]
 struct CursorPosition(Vec2);
 fn place_tile(
     mut commands: Commands,
     textures: Res<TextureAssets>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    cursor_position: Res<CursorPosition>,
-    mut mouse_button_input_events: EventReader<MouseButtonInput>,
     map_transform_query: Query<&Transform, With<Map>>,
     mut queue: ResMut<TileQueue>,
     mut map_query: MapQuery,
     placables_query: Query<&PlacableTile>,
     mut state: ResMut<State<TurnState>>,
+    mut pending_placement: ResMut<PendingPlacement>,
 ) {
-    for event in mouse_button_input_events.iter() {
-        if event.button == MouseButton::Left && event.state == ElementState::Released {
-            if let Ok(t) = map_transform_query.single() {
-                let tile = ((cursor_position.0 - t.translation.truncate()) / TILE_SIZE as f32).floor();
-                if tile.x > 1.0 && tile.x < MAP_SIZE as f32-2.0 && tile.y > 1.0 && tile.y < MAP_SIZE as f32-2.0 {
-                    if let Ok(placable_tile) = placables_query.get(queue.0[0]) {
-                        let pos = bevy_ecs_tilemap::TilePos(tile.x as u32, tile.y as u32);
-                        if placable_tile.can_place(pos, &map_query) {
-                            let placable_entity = queue.0.remove(0);
-                            let e = PlacableTile::spawn_random(&mut commands, &textures, &mut materials, &mut thread_rng());
-                            queue.0.push(e);
-                            placable_tile.place_on_map(&mut commands, pos, &mut map_query);
-                            commands.entity(placable_entity).despawn_recursive();
-                            state.set(TurnState::PestTurnA);
-                        }
+    if let Some(click_pos) = pending_placement.0.take() {
+        if let Ok(t) = map_transform_query.single() {
+            let tile = ((click_pos - t.translation.truncate()) / TILE_SIZE as f32).floor();
+            if tile.x > 1.0 && tile.x < MAP_SIZE as f32-2.0 && tile.y > 1.0 && tile.y < MAP_SIZE as f32-2.0 {
+                if let Ok(placable_tile) = placables_query.get(queue.0[0]) {
+                    let pos = bevy_ecs_tilemap::TilePos(tile.x as u32, tile.y as u32);
+                    if placable_tile.can_place(pos, &map_query) {
+                        let placable_entity = queue.0.remove(0);
+                        let e = PlacableTile::spawn_random(&mut commands, &textures, &mut materials, &mut thread_rng());
+                        queue.0.push(e);
+                        placable_tile.place_on_map(&mut commands, pos, &mut map_query);
+                        commands.entity(placable_entity).despawn_recursive();
+                        state.set(TurnState::PestTurnA);
                     }
                 }
             }
