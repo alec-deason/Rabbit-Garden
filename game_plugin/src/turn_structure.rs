@@ -24,6 +24,7 @@ pub enum TurnState {
 impl Plugin for TurnPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app
+            .add_resource(TurnTimer(Timer::from_seconds(0.1)))
             .add_state(TurnState::Idle)
            .add_system_set(
                SystemSet::on_update(GameState::Playing)
@@ -36,10 +37,15 @@ impl Plugin for TurnPlugin {
     }
 }
 
+struct TurnTimer(Timer);
+
 fn progress_turn(
+    time: Res<Time>,
+    mut turn_timer: ResMut<TurnTimer>,
     mut keyboard_input_events: EventReader<KeyboardInput>,
     mut state: ResMut<State<TurnState>>,
 ) {
+    turn_timer.0.tick(time.delta_seconds);
     // These outer states should be moved through as quickly as possible regardless of player interaction
     match state.current() {
         TurnState::Idle => state.set(TurnState::RoundSetup).unwrap(),
@@ -47,8 +53,16 @@ fn progress_turn(
         TurnState::StartOfRound => state.set(TurnState::PlayerTurn).unwrap(),
         TurnState::EndOfRound => state.set(TurnState::RoundCleanup).unwrap(),
         TurnState::RoundCleanup => state.set(TurnState::RoundSetup).unwrap(),
-        TurnState::PestTurnA => state.set(TurnState::PestTurnB).unwrap(),
-        TurnState::PestTurnB => state.set(TurnState::PestTurnA).unwrap(),
+        TurnState::PestTurnA => {
+            if turn_timer.0.just_finished() {
+                state.set(TurnState::PestTurnB).unwrap()
+            }
+        }
+        TurnState::PestTurnB => {
+            if turn_timer.0.just_finished() {
+                state.set(TurnState::PestTurnA).unwrap()
+            }
+        }
         _ => {
             // These inner states should only move forward when the player takes the action necessary to end their turn
             for event in keyboard_input_events.iter() {
