@@ -24,7 +24,7 @@ pub enum TurnState {
 impl Plugin for TurnPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app
-            .add_resource(TurnTimer(Timer::from_seconds(0.1)))
+            .add_resource(TurnTimer(Timer::from_seconds(0.1, true)))
             .add_state(TurnState::Idle)
            .add_system_set(
                SystemSet::on_update(GameState::Playing)
