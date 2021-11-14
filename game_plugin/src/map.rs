@@ -10,8 +10,8 @@ use rand::prelude::*;
 
 pub struct MapPlugin;
 
-pub const MAP_SIZE: u32 = 16;
-pub const TILE_SIZE: u32 = 31;
+pub const MAP_SIZE: u32 = 9;
+pub const TILE_SIZE: u32 = 86;
 
 impl Plugin for MapPlugin {
     fn build(&self, app: &mut AppBuilder) {
@@ -62,44 +62,14 @@ fn spawn_map(
     mut map_query: MapQuery,
 ) {
 
-    let chunks = MAP_SIZE/8;
+    let chunks = 1;
 
     let base_material_handle = materials.add(textures.texture_tiles.clone().into());
     let fence_material_handle = materials.add(textures.texture_fence_tiles.clone().into());
 
-    // Create dirt layer
     let map_entity = commands.spawn().id();
     let mut map = Map::new(0u16, map_entity);
     let mut rng = thread_rng();
-    let (mut layer_builder, _) = LayerBuilder::new(
-        &mut commands,
-        LayerSettings::new(
-            MapSize(chunks, chunks),
-            ChunkSize(8, 8),
-            TileSize(TILE_SIZE as f32, TILE_SIZE as f32),
-            TextureSize(3.0*TILE_SIZE as f32, 2.0*TILE_SIZE as f32),
-        ),
-        0u16,
-        GameLayer::Dirt,
-        None,
-    );
-    for x in 0..16 {
-        for y in 0..16 {
-            let position = TilePos(x,y);
-            let _ = layer_builder.set_tile(
-                position,
-                TileBundle {
-                    tile: Tile {
-                        texture_index: rng.gen_range(4..6),
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                },
-            );
-       }
-    }
-    let base_layer_entity = map_query.build_layer(&mut commands, layer_builder, base_material_handle.clone());
-    map.add_layer(&mut commands, GameLayer::Dirt, base_layer_entity);
 
     // Create Pest layer
 
@@ -107,7 +77,7 @@ fn spawn_map(
         &mut commands,
         LayerSettings::new(
             MapSize(chunks, chunks),
-            ChunkSize(8, 8),
+            ChunkSize(MAP_SIZE, MAP_SIZE),
             TileSize(TILE_SIZE as f32, TILE_SIZE as f32),
             TextureSize(3.0*TILE_SIZE as f32, 2.0*TILE_SIZE as f32),
         ),
@@ -126,7 +96,7 @@ fn spawn_map(
         &mut commands,
         LayerSettings::new(
             MapSize(chunks, chunks),
-            ChunkSize(8, 8),
+            ChunkSize(MAP_SIZE, MAP_SIZE),
             TileSize(TILE_SIZE as f32, TILE_SIZE as f32),
             TextureSize(4.0*TILE_SIZE as f32, 4.0*TILE_SIZE as f32),
         ),
@@ -143,7 +113,7 @@ fn spawn_map(
         &mut commands,
         LayerSettings::new(
             MapSize(chunks, chunks),
-            ChunkSize(8, 8),
+            ChunkSize(MAP_SIZE, MAP_SIZE),
             TileSize(TILE_SIZE as f32, TILE_SIZE as f32),
             TextureSize(3.0*TILE_SIZE as f32, 2.0*TILE_SIZE as f32),
         ),
@@ -156,7 +126,7 @@ fn spawn_map(
     commands
         .entity(map_entity)
         .insert(map)
-        .insert(Transform::from_xyz(-8.0*64.0, -8.0*64.0, 0.0))
+        .insert(Transform::from_xyz(-1.0 * TILE_SIZE as f32 * MAP_SIZE as f32 * 0.5, -1.0 * TILE_SIZE as f32 * MAP_SIZE as f32 * 0.5 - TILE_SIZE as f32, 0.0))
         .insert(GlobalTransform::default());
 }
 

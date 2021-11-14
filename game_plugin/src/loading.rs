@@ -42,4 +42,8 @@ pub struct TextureAssets {
     pub fence: Handle<Texture>,
     #[asset(path = "textures/fence_tiles.png")]
     pub texture_fence_tiles: Handle<Texture>,
+    #[asset(path = "textures/overlay.png")]
+    pub overlay: Handle<Texture>,
+    #[asset(path = "textures/underlay.png")]
+    pub underlay: Handle<Texture>,
 }

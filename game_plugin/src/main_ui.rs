@@ -1,159 +1,191 @@
 use bevy::{
     prelude::*,
     asset::HandleId,
+    input::{
+        ElementState,
+        mouse::MouseButtonInput
+    }
 };
+use rand::prelude::*;
 
-use bevy_egui::{egui, EguiContext, EguiPlugin};
 use bevy_ecs_tilemap::prelude::*;
 use crate::{
     GameState,
     map::{MAP_SIZE, TILE_SIZE, GameLayer, Fence},
     plants::{Plant, RoundsTillMature},
     loading::TextureAssets,
+    turn_structure::TurnState,
 };
 
 pub struct MainUiPlugin;
 
 impl Plugin for MainUiPlugin {
     fn build(&self, app: &mut AppBuilder) {
+        app.init_resource::<CursorPosition>();
+        app.init_resource::<TileQueue>();
         app.add_system_set(
-            SystemSet::on_exit(GameState::Loading)
-                .with_system(setup_assets.system())
+            SystemSet::on_enter(GameState::Playing)
+                .with_system(setup_queue.system())
+                .with_system(spawn_overlay.system())
+        );
+        app.add_system_set(
+            SystemSet::on_exit(GameState::Playing)
+                .with_system(cleanup_queue.system())
+                .with_system(despawn_overlay.system())
         );
         app.add_system_set(
             SystemSet::on_update(GameState::Playing)
-                .with_system(main_ui.system())
                 .with_system(quit_to_menu.system())
+        );
+        app.add_system_set(
+            SystemSet::on_update(TurnState::PlayerTurn)
+                .with_system(place_tile.system())
+        );
+        app.add_system_set(
+            SystemSet::on_enter(TurnState::PlayerTurn)
+                .with_system(arrange_placables.system())
+        );
+        app.add_system_set(
+            SystemSet::on_exit(TurnState::PlayerTurn)
+                .with_system(arrange_placables.system())
         );
     }
 }
 
-fn setup_assets(
-    mut commands: Commands,
-    mut egui_context: ResMut<EguiContext>,
-    textures: Res<TextureAssets>,
-) {
-    egui_context.set_egui_texture(0, textures.pumpkin.clone());
-    commands.spawn().insert(DraggableTile {
-        name: "pumpkin".to_string(),
-        default_position: egui::Pos2::new(0.0, 0.0),
-        needs_reset: true,
-        texture_id: 0,
-        game_layer: GameLayer::Plants,
-        tile_id: 2,
-    });
-    egui_context.set_egui_texture(1, textures.carrot.clone());
-    commands.spawn().insert(DraggableTile {
-        name: "carrot".to_string(),
-        default_position: egui::Pos2::new(TILE_SIZE as f32, 0.0),
-        needs_reset: true,
-        texture_id: 1,
-        game_layer: GameLayer::Plants,
-        tile_id: 3,
-    });
-    egui_context.set_egui_texture(2, textures.fence.clone());
-    commands.spawn().insert(DraggableTile {
-        name: "fence".to_string(),
-        default_position: egui::Pos2::new(TILE_SIZE as f32*2.0, 0.0),
-        needs_reset: true,
-        texture_id: 2,
-        game_layer: GameLayer::Fences,
-        tile_id: 0,
-    });
+#[derive(Copy, Clone, Debug)]
+enum PlacableTile {
+    Carrot,
+    Pumpkin,
+    Fence,
 }
 
-struct DraggableTile {
-    name: String,
-    default_position: egui::Pos2,
-    needs_reset: bool,
-    texture_id: u64,
-    game_layer: GameLayer,
-    tile_id: u32,
-}
+impl PlacableTile {
+    fn spawn_random<R: Rng>(commands: &mut Commands, textures: &TextureAssets, materials: &mut Assets<ColorMaterial>, rng: &mut R) -> Entity {
+        let pt = *[
+            PlacableTile::Carrot,
+            PlacableTile::Pumpkin,
+            PlacableTile::Fence,
+        ].choose(rng).unwrap();
+        let e = commands.spawn_bundle(SpriteBundle {
+            material: materials.add(pt.texture_handle(&textures).into()),
+            transform: Transform::from_xyz(0.0, 0.0, 1.0),
+            ..Default::default()
+        }).insert(pt).id();
+        e
+    }
 
-impl DraggableTile {
-    fn show(&mut self, ctx: &EguiContext) -> egui::InnerResponse<()> {
-        let mut area = egui::Area::new(&self.name);
-        if self.needs_reset {
-            self.needs_reset = false;
-            area = area.current_pos(self.default_position);
+    fn texture_handle(&self, assets: &TextureAssets) -> Handle<Texture> {
+        match self {
+            PlacableTile::Carrot => assets.carrot.clone(),
+            PlacableTile::Pumpkin => assets.pumpkin.clone(),
+            PlacableTile::Fence => assets.fence.clone(),
         }
-        area.show(ctx.ctx(), |ui| {
-            ui.image(
-                egui::TextureId::User(self.texture_id),
-                [23.0, 20.0],
-            );
-        })
+    }
+
+    fn place_on_map(&self, commands: &mut Commands, pos: bevy_ecs_tilemap::TilePos, map_query: &mut MapQuery) {
+            let e = map_query.set_tile(
+                commands,
+                pos,
+                Tile {
+                    texture_index: match self {
+                        PlacableTile::Carrot => 3,
+                        PlacableTile::Pumpkin => 2,
+                        PlacableTile::Fence => 0,
+                    },
+                    ..Default::default()
+                },
+                0u16,
+                match self {
+                    PlacableTile::Carrot => GameLayer::Plants,
+                    PlacableTile::Pumpkin => GameLayer::Plants,
+                    PlacableTile::Fence => GameLayer::Fences,
+                }
+            ).unwrap();
+            match self {
+                PlacableTile::Carrot => {
+                    commands.entity(e).insert(Plant);
+                    commands.entity(e).insert(RoundsTillMature(1));
+                    map_query.notify_chunk_for_tile(pos, 0u16, GameLayer::Plants);
+                }
+                PlacableTile::Pumpkin => {
+                    commands.entity(e).insert(Plant);
+                    commands.entity(e).insert(RoundsTillMature(4));
+                    map_query.notify_chunk_for_tile(pos, 0u16, GameLayer::Plants);
+                }
+                PlacableTile::Fence => {
+                    commands.entity(e).insert(Fence);
+                    map_query.notify_chunk_for_tile(pos, 0u16, GameLayer::Fences);
+                }
+            }
     }
 }
 
-fn main_ui(
+#[derive(Default)]
+struct TileQueue(Vec<Entity>);
+
+fn setup_queue(
     mut commands: Commands,
-    egui_context: Res<EguiContext>,
-    mut map_component_query: Query<&mut Transform, With<Map>>,
-    mut map_query: MapQuery,
-    wnds: Res<Windows>,
-    mut draggables_query: Query<&mut DraggableTile>,
+    mut queue: ResMut<TileQueue>,
+    textures: Res<TextureAssets>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
+    let mut rng = thread_rng();
+    queue.0.clear();
+    for _ in 0..5 {
+        let e = PlacableTile::spawn_random(&mut commands, &textures, &mut materials, &mut rng);
+        queue.0.push(e);
+    }
+}
 
-        let draggable_responses:Vec<_> = draggables_query.iter_mut().map(|mut d| d.show(&egui_context).response).collect();
+fn cleanup_queue(
+    mut commands: Commands,
+    mut queue: ResMut<TileQueue>,
+    query: Query<Entity, With<PlacableTile>>,
+) {
+    for e in query.iter() {
+        commands.entity(e).despawn_recursive();
+    }
+    queue.0.clear();
+}
 
-        let rect = egui::SidePanel::left("my_left_panel").resizable(false).show(egui_context.ctx(), |ui| {
-            let mut size = ui.available_size();
-            size.x = size.x.min(300.0);
-            ui.allocate_space(size);
-        }).response.rect;
-        let wnd = wnds.get_primary().unwrap();
-        let size = Vec2::new(wnd.width() as f32, wnd.height() as f32);
-        let scale = rect.max.y.min(size.x - rect.max.x) / (MAP_SIZE*TILE_SIZE) as f32;
-        let map_x = rect.max.x - size.x / 2.0;
-        let map_y =((MAP_SIZE*TILE_SIZE) as f32 / -2.0) * scale;
-
-        for mut t in map_component_query.iter_mut() {
-            t.translation.x = map_x;
-            t.translation.y = map_y;
-            t.scale = Vec3::new(scale, scale, 1.0);
+fn arrange_placables(
+    queue: Res<TileQueue>,
+    mut query: Query<&mut Transform, With<PlacableTile>>,
+) {
+    for (i, e) in queue.0.iter().enumerate() {
+        if let Ok(mut t) = query.get_mut(*e) {
+            t.translation.x = i as f32 * TILE_SIZE as f32 * 2.0 - (TILE_SIZE as f32 * MAP_SIZE as f32)/2.0 + TILE_SIZE as f32;
+            t.translation.y = (TILE_SIZE as f32 * MAP_SIZE as f32)/2.0;
         }
+    }
+}
 
-        for (mut draggable, response) in draggables_query.iter_mut().zip(draggable_responses) {
-            if response.drag_released() {
-                draggable.needs_reset = true;
-                if let Some(pointer_pos) = response.interact_pointer_pos() {
-                    let pointer_pos = egui::Pos2::new(pointer_pos.x - size.x/2.0, pointer_pos.y - size.y/2.0);
-                    let map_pos = pointer_pos - egui::Pos2::new(map_x, map_y);
-                    let mut tile_pos = map_pos / egui::Vec2::new(TILE_SIZE as f32 * scale, TILE_SIZE as f32 * scale);
-                    tile_pos.y = MAP_SIZE as f32 - tile_pos.y;
-                    if tile_pos.x >= 0.0 && tile_pos.y >= 0.0 && tile_pos.x < MAP_SIZE as f32 && tile_pos.y < MAP_SIZE as f32 {
-                        let tile_pos = TilePos(tile_pos.x as u32, tile_pos.y as u32);
-                        let e = map_query.set_tile(
-                            &mut commands,
-                            tile_pos,
-                            Tile {
-                                texture_index: draggable.tile_id as u16,
-                                ..Default::default()
-                            },
-                            0u16,
-                            draggable.game_layer,
-                        );
-                        map_query.notify_chunk_for_tile(tile_pos, 0u16, draggable.game_layer);
-                        match draggable.game_layer {
-                            GameLayer::Plants => {
+struct GameOverlay;
+fn spawn_overlay(
+    mut commands: Commands,
+    textures: Res<TextureAssets>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    commands.spawn_bundle(SpriteBundle {
+        material: materials.add(textures.overlay.clone().into()),
+        transform: Transform::from_xyz(0.0, 0.0, 100.0),
+        ..Default::default()
+    }).insert(GameOverlay);
 
-                                commands.entity(e.unwrap()).insert(Plant);
-                                if draggable.name == "pumpkin" {
-                                    commands.entity(e.unwrap()).insert(RoundsTillMature(4));
-                                } else {
-                                    commands.entity(e.unwrap()).insert(RoundsTillMature(1));
-                                }
-                            },
-                            GameLayer::Fences => { commands.entity(e.unwrap()).insert(Fence); },
-                            _ => ()
-                        }
-                    }
-                }
-            }
-        }
+    commands.spawn_bundle(SpriteBundle {
+        material: materials.add(textures.underlay.clone().into()),
+        transform: Transform::from_xyz(0.0, 0.0, 0.0),
+        ..Default::default()
+    }).insert(GameOverlay);
+}
 
+fn despawn_overlay(
+    mut commands: Commands,
+    query: Query<Entity, With<GameOverlay>>,
+) {
+    for e in query.iter() {
+        commands.entity(e).despawn_recursive();
+    }
 }
 
 fn quit_to_menu(
@@ -162,5 +194,46 @@ fn quit_to_menu(
 ) {
     if keyboard_input.just_pressed(KeyCode::Escape) {
         state.set(GameState::Menu);
+    }
+}
+
+#[derive(Default)]
+struct CursorPosition(Vec2);
+fn place_tile(
+    mut commands: Commands,
+    textures: Res<TextureAssets>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut cursor_moved_events: EventReader<CursorMoved>,
+    mut cursor_position: ResMut<CursorPosition>,
+    windows: Res<Windows>,
+    mut mouse_button_input_events: EventReader<MouseButtonInput>,
+    map_transform_query: Query<&Transform, With<Map>>,
+    mut queue: ResMut<TileQueue>,
+    mut map_query: MapQuery,
+    placables_query: Query<&PlacableTile>,
+    mut state: ResMut<State<TurnState>>,
+) {
+    let window = windows.get_primary().unwrap();
+    let window_size = Vec2::new(window.width() as f32, window.height() as f32);
+    for event in cursor_moved_events.iter() {
+        cursor_position.0 = event.position - window_size/2.0;
+    }
+    for event in mouse_button_input_events.iter() {
+        if event.button == MouseButton::Left && event.state == ElementState::Released {
+            if let Ok(t) = map_transform_query.single() {
+                let tile = ((cursor_position.0 - t.translation.truncate()) / TILE_SIZE as f32).floor();
+                if tile.x > 1.0 && tile.x < MAP_SIZE as f32-2.0 && tile.y > 1.0 && tile.y < MAP_SIZE as f32-2.0 {
+                    let placable_entity = queue.0.remove(0);
+                    let e = PlacableTile::spawn_random(&mut commands, &textures, &mut materials, &mut thread_rng());
+                    queue.0.push(e);
+                    if let Ok(placable_tile) = placables_query.get(placable_entity) {
+                        let pos = bevy_ecs_tilemap::TilePos(tile.x as u32, tile.y as u32);
+                        placable_tile.place_on_map(&mut commands, pos, &mut map_query);
+                        commands.entity(placable_entity).despawn_recursive();
+                        state.set(TurnState::PestTurnA);
+                    }
+                }
+            }
+        }
     }
 }
