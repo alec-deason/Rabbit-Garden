@@ -6,7 +6,7 @@ use crate::{
 };
 
 pub struct RoundsTillMature(pub i32);
-pub struct Plant;
+pub struct Plant(pub u32);
 
 pub struct PlantPlugin;
 impl Plugin for PlantPlugin {

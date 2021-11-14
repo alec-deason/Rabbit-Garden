@@ -9,12 +9,12 @@ impl Plugin for MenuPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_system_set(
             SystemSet::on_update(GameState::Menu)
-                .with_system(ui_example.system())
+                .with_system(menu_ui.system())
         );
     }
 }
 
-fn ui_example(
+fn menu_ui(
     egui_context: Res<EguiContext>,
     mut state: ResMut<State<GameState>>,
 ) {

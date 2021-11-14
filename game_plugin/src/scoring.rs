@@ -16,12 +16,12 @@ impl Plugin for ScoringPlugin {
 }
 
 fn score(
-    plant_query: Query<&RoundsTillMature, With<Plant>>,
+    plant_query: Query<(&Plant, &RoundsTillMature)>,
 ) {
     let mut score = 0;
-    for rounds_till_mature in plant_query.iter() {
+    for (plant, rounds_till_mature) in plant_query.iter() {
         if rounds_till_mature.0 == 0 {
-            score += 1;
+            score += plant.0;
         }
     }
     println!("Round score: {}", score);

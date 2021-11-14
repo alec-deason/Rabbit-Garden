@@ -55,6 +55,7 @@ impl Plugin for MainUiPlugin {
 
 #[derive(Copy, Clone, Debug)]
 enum PlacableTile {
+    Radish,
     Carrot,
     Pumpkin,
     Fence,
@@ -63,6 +64,7 @@ enum PlacableTile {
 impl PlacableTile {
     fn spawn_random<R: Rng>(commands: &mut Commands, textures: &TextureAssets, materials: &mut Assets<ColorMaterial>, rng: &mut R) -> Entity {
         let pt = *[
+            PlacableTile::Radish,
             PlacableTile::Carrot,
             PlacableTile::Pumpkin,
             PlacableTile::Fence,
@@ -77,6 +79,7 @@ impl PlacableTile {
 
     fn texture_handle(&self, assets: &TextureAssets) -> Handle<Texture> {
         match self {
+            PlacableTile::Radish=> assets.radish.clone(),
             PlacableTile::Carrot => assets.carrot.clone(),
             PlacableTile::Pumpkin => assets.pumpkin.clone(),
             PlacableTile::Fence => assets.fence.clone(),
@@ -85,6 +88,7 @@ impl PlacableTile {
 
     fn can_place(&self, pos: bevy_ecs_tilemap::TilePos, map_query: &MapQuery) -> bool {
         match self {
+            PlacableTile::Radish |
             PlacableTile::Carrot |
             PlacableTile::Pumpkin => {
                 map_query.get_tile_entity(
@@ -131,6 +135,7 @@ impl PlacableTile {
                 pos,
                 Tile {
                     texture_index: match self {
+                        PlacableTile::Radish => 4,
                         PlacableTile::Carrot => 3,
                         PlacableTile::Pumpkin => 2,
                         PlacableTile::Fence => 0,
@@ -139,19 +144,25 @@ impl PlacableTile {
                 },
                 0u16,
                 match self {
-                    PlacableTile::Carrot => GameLayer::Plants,
+                    PlacableTile::Radish |
+                    PlacableTile::Carrot |
                     PlacableTile::Pumpkin => GameLayer::Plants,
                     PlacableTile::Fence => GameLayer::Fences,
                 }
             ).unwrap();
             match self {
-                PlacableTile::Carrot => {
-                    commands.entity(e).insert(Plant);
+                PlacableTile::Radish=> {
+                    commands.entity(e).insert(Plant(1));
                     commands.entity(e).insert(RoundsTillMature(1));
                     map_query.notify_chunk_for_tile(pos, 0u16, GameLayer::Plants);
                 }
+                PlacableTile::Carrot => {
+                    commands.entity(e).insert(Plant(3));
+                    commands.entity(e).insert(RoundsTillMature(2));
+                    map_query.notify_chunk_for_tile(pos, 0u16, GameLayer::Plants);
+                }
                 PlacableTile::Pumpkin => {
-                    commands.entity(e).insert(Plant);
+                    commands.entity(e).insert(Plant(9));
                     commands.entity(e).insert(RoundsTillMature(4));
                     map_query.notify_chunk_for_tile(pos, 0u16, GameLayer::Plants);
                 }
