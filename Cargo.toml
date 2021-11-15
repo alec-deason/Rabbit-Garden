@@ -45,6 +45,7 @@ winit = "0.24.0"
 tracing-subscriber = "0.2.18"
 
 bevy_webgl2 = { version = "0.5.0", optional = true }
+bevy_web_fullscreen = { git = "https://github.com/ostwilkens/bevy_web_fullscreen.git" }
 
 [build-dependencies]
 embed-resource = "1.4"

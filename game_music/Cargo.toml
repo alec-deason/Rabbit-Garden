@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 instruments = { git = "https://github.com/alec-deason/virtual_modular.git"}
 bevy = { version = "0.5.0", default-features = false }
-cpal = "0.13.3"
+cpal = { version = "0.13.3", features = ["wasm-bindgen"] }
 generic-array = "0.14.4"
 
 [build-dependencies]
