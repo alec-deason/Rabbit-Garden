@@ -29,6 +29,7 @@ use bevy::prelude::*;
 enum GameState {
     Loading,
     Playing,
+    PrizePlantScoring,
     Menu,
 }
 

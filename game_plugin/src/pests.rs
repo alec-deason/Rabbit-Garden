@@ -5,6 +5,7 @@ use crate::{
     GameState,
     turn_structure::TurnState,
     loading::TextureAssets,
+    plants::Health,
     map::{GameLayer, MAP_SIZE, TilePos, Blocking},
 };
 use rand::prelude::*;
@@ -183,6 +184,7 @@ fn pest_movement(
         Query<(Entity, &TilePos, &GameLayer), Without<Blocking>>,
         Query<(Entity, &mut Pest, &mut TilePos, &GameLayer), Without<IdlePest>>
     )>,
+    mut health_query: Query<&mut Health>,
 ) {
     let mut current_positions = HashMap::with_capacity(10);
     for (e, pos, layer) in queries.q0().iter() {
@@ -197,7 +199,14 @@ fn pest_movement(
             if let Some((other, layer)) = current_positions.get(&new_pos) {
                 if layer == &pest.consumption_layer {
                     did_move = true;
-                    commands.entity(*other).despawn_recursive();
+                    if let Ok(mut health) = health_query.get_mut(*other) {
+                        health.0 -= 1;
+                        if health.0 <= 0 {
+                            commands.entity(*other).despawn_recursive();
+                        }
+                    } else {
+                        commands.entity(*other).despawn_recursive();
+                    }
                     if pest.stop_after_consumption {
                         commands.entity(e).despawn_recursive();
                     }

@@ -12,7 +12,7 @@ use anyhow::Result;
 use crate::{
     GameState,
     map::{MAP_SIZE, TILE_SIZE, GameLayer, Fence, TilePos},
-    plants::{Plant, RoundsTillMature},
+    plants::{Plant, RoundsTillMature, Health},
     loading::TextureAssets,
     turn_structure::TurnState,
 };
@@ -125,6 +125,7 @@ impl PlacableTile {
                 (
                 e.insert(GameLayer::Plants)
                  .insert(Plant(1))
+                 .insert(Health(1))
                  .insert(RoundsTillMature(1)),
                  "radish".to_string()
                 )
@@ -133,6 +134,7 @@ impl PlacableTile {
                 (
                 e.insert(GameLayer::Plants)
                  .insert(Plant(2))
+                 .insert(Health(1))
                  .insert(RoundsTillMature(2)),
                 "carrot".to_string()
                 )
@@ -141,6 +143,7 @@ impl PlacableTile {
                 (
                 e.insert(GameLayer::Plants)
                  .insert(Plant(6))
+                 .insert(Health(1))
                  .insert(RoundsTillMature(4)),
                 "pumpkin".to_string()
                 )
@@ -148,6 +151,7 @@ impl PlacableTile {
             PlacableTile::Fence => {
                 (
                 e.insert(GameLayer::Fences)
+                 .insert(Health(1))
                  .insert(Fence),
                  "fence".to_string()
                 )
@@ -191,7 +195,7 @@ fn arrange_placables(
 ) {
     for (i, e) in queue.0.iter().enumerate() {
         if let Ok(mut t) = query.get_mut(*e) {
-            t.translation.x = i as f32 * TILE_SIZE as f32 * 2.0 - (TILE_SIZE as f32 * MAP_SIZE as f32)/2.0 + TILE_SIZE as f32;
+            t.translation.x = i as f32 * TILE_SIZE as f32 * 2.61 - (TILE_SIZE as f32 * MAP_SIZE as f32)/2.0 + TILE_SIZE as f32;
             t.translation.y = (TILE_SIZE as f32 * MAP_SIZE as f32)/2.0;
         }
     }
@@ -302,7 +306,7 @@ fn place_tile(
 }
 
 struct DesiredSprite(String);
-fn spawn_tile_sprites(
+pub fn spawn_tile_sprites(
     In(to_spawn): In<Result<Vec<(Entity, String)>>>,
     mut commands: Commands,
     textures: Res<TextureAssets>,
@@ -315,6 +319,10 @@ fn spawn_tile_sprites(
                 "radish" => textures.radish.clone(),
                 "carrot" => textures.carrot.clone(),
                 "pumpkin" => textures.pumpkin.clone(),
+                "big_pumpkin1" => textures.big_pumpkin1.clone(),
+                "big_pumpkin2" => textures.big_pumpkin2.clone(),
+                "big_pumpkin3" => textures.big_pumpkin3.clone(),
+                "big_pumpkin4" => textures.big_pumpkin4.clone(),
                 "fence" => textures.fence_tiles.clone(),
                 _ => unimplemented!()
             };

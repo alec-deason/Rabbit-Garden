@@ -36,6 +36,14 @@ pub struct TextureAssets {
     pub texture_tiles: Handle<Texture>,
     #[asset(path = "textures/pumpkin.png")]
     pub pumpkin: Handle<Texture>,
+    #[asset(path = "textures/big_pumpkin1.png")]
+    pub big_pumpkin1: Handle<Texture>,
+    #[asset(path = "textures/big_pumpkin2.png")]
+    pub big_pumpkin2: Handle<Texture>,
+    #[asset(path = "textures/big_pumpkin3.png")]
+    pub big_pumpkin3: Handle<Texture>,
+    #[asset(path = "textures/big_pumpkin4.png")]
+    pub big_pumpkin4: Handle<Texture>,
     #[asset(path = "textures/wind.png")]
     pub wind: Handle<Texture>,
     #[asset(path = "textures/radish.png")]
