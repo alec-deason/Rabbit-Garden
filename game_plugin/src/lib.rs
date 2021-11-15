@@ -45,7 +45,7 @@ impl Plugin for GamePlugin {
             .add_plugin(PestPlugin)
             .add_plugin(PlantPlugin)
             .add_plugin(TurnPlugin)
-            .add_plugin(MusicPlugin)
+            //.add_plugin(MusicPlugin)
             .add_plugin(ScoringPlugin)
             .add_plugin(MapPlugin);
 

@@ -60,4 +60,13 @@ pub struct TextureAssets {
     pub overlay: Handle<Texture>,
     #[asset(path = "textures/underlay.png")]
     pub underlay: Handle<Texture>,
+
+    #[asset(path = "textures/no_prize.png")]
+    pub no_prize: Handle<Texture>,
+    #[asset(path = "textures/3rd_prize.png")]
+    pub third_prize: Handle<Texture>,
+    #[asset(path = "textures/2nd_prize.png")]
+    pub second_prize: Handle<Texture>,
+    #[asset(path = "textures/1st_prize.png")]
+    pub first_prize: Handle<Texture>,
 }

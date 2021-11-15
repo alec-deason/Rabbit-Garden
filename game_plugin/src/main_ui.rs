@@ -13,6 +13,7 @@ use crate::{
     GameState,
     map::{MAP_SIZE, TILE_SIZE, GameLayer, Fence, TilePos},
     plants::{Plant, RoundsTillMature, Health},
+    pests::Pest,
     loading::TextureAssets,
     turn_structure::TurnState,
 };
@@ -35,6 +36,8 @@ impl Plugin for MainUiPlugin {
             SystemSet::on_exit(GameState::Playing)
                 .with_system(cleanup_queue.system())
                 .with_system(despawn_overlay.system())
+                .with_system(despawn_tiles.system())
+                .with_system(reset_first_click_supressor.system())
         );
         app.add_system_set(
             SystemSet::on_update(GameState::Playing)
@@ -201,7 +204,7 @@ fn arrange_placables(
     }
 }
 
-struct GameOverlay;
+pub struct GameOverlay;
 fn spawn_overlay(
     mut commands: Commands,
     textures: Res<TextureAssets>,
@@ -220,14 +223,18 @@ fn spawn_overlay(
     }).insert(GameOverlay);
 }
 
-fn despawn_overlay(
+pub fn despawn_overlay(
     mut commands: Commands,
     query: Query<Entity, With<GameOverlay>>,
-    mut first_click_supressor: ResMut<FirstClickSupressor>,
 ) {
     for e in query.iter() {
         commands.entity(e).despawn_recursive();
     }
+}
+
+fn reset_first_click_supressor(
+    mut first_click_supressor: ResMut<FirstClickSupressor>,
+) {
     first_click_supressor.0 = false;
 }
 
@@ -283,6 +290,7 @@ fn place_tile(
     placables_query: Query<&PlacableTile>,
     mut state: ResMut<State<TurnState>>,
     mut pending_placement: ResMut<PendingPlacement>,
+    collision_query: Query<&TilePos>,
 ) -> Result<Vec<(Entity, String)>> {
     let mut to_spawn = vec![];
     if let Some(click_pos) = pending_placement.0.take() {
@@ -291,7 +299,7 @@ fn place_tile(
         if tile.x > 1.0 && tile.x < MAP_SIZE as f32-2.0 && tile.y > 1.0 && tile.y < MAP_SIZE as f32-2.0 {
             if let Ok(placable_tile) = placables_query.get(queue.0[0]) {
                 let pos = TilePos(IVec2::new(tile.x as i32, tile.y as i32));
-                if placable_tile.can_place(pos) {
+                if !collision_query.iter().any(|other| other == &pos) {
                     let placable_entity = queue.0.remove(0);
                     let e = PlacableTile::spawn_random(&mut commands, &textures, &mut materials, &mut thread_rng());
                     queue.0.push(e);
@@ -347,3 +355,12 @@ pub fn spawn_tile_sprites(
     }
 }
 
+
+fn despawn_tiles(
+    mut commands: Commands,
+    query: Query<Entity, Or<(With<Plant>, With<Fence>, With<Pest>)>>,
+) {
+    for e in query.iter() {
+        commands.entity(e).despawn_recursive();
+    }
+}
