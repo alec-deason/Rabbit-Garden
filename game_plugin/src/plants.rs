@@ -1,8 +1,7 @@
 use bevy::prelude::*;
-use bevy_ecs_tilemap::prelude::*;
 use crate::{
     turn_structure::TurnState,
-    map::GameLayer
+    map::{GameLayer, TilePos}
 };
 
 pub struct RoundsTillMature(pub i32);
@@ -32,18 +31,11 @@ fn increment_maturity(
 
 fn despawn_mature_plants(
     mut commands: Commands,
-    plant_query: Query<(&TilePos, &RoundsTillMature), With<Plant>>,
-    mut map_query: MapQuery,
+    plant_query: Query<(Entity, &RoundsTillMature), With<Plant>>,
 ) {
-    for (pos, rounds_till_mature) in plant_query.iter() {
+    for (e, rounds_till_mature) in plant_query.iter() {
         if rounds_till_mature.0 <= 0 {
-            map_query.despawn_tile(
-                &mut commands,
-                *pos,
-                0u16,
-                GameLayer::Plants
-            );
-            map_query.notify_chunk_for_tile(*pos, 0u16, GameLayer::Plants);
+            commands.entity(e).despawn_recursive();
         }
     }
 }

@@ -7,11 +7,11 @@ use bevy::{
     }
 };
 use rand::prelude::*;
+use anyhow::Result;
 
-use bevy_ecs_tilemap::prelude::*;
 use crate::{
     GameState,
-    map::{MAP_SIZE, TILE_SIZE, GameLayer, Fence},
+    map::{MAP_SIZE, TILE_SIZE, GameLayer, Fence, TilePos},
     plants::{Plant, RoundsTillMature},
     loading::TextureAssets,
     turn_structure::TurnState,
@@ -23,6 +23,7 @@ impl Plugin for MainUiPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<CursorPosition>();
         app.init_resource::<TileQueue>();
+        app.init_resource::<FirstClickSupressor>();
         app.init_resource::<PendingPlacement>();
         app.add_system(track_cursor.system());
         app.add_system_set(
@@ -42,7 +43,7 @@ impl Plugin for MainUiPlugin {
         );
         app.add_system_set(
             SystemSet::on_update(TurnState::PlayerTurn)
-                .with_system(place_tile.system())
+                .with_system(place_tile.system().chain(spawn_tile_sprites.system()))
         );
         app.add_system_set(
             SystemSet::on_enter(TurnState::PlayerTurn)
@@ -88,7 +89,8 @@ impl PlacableTile {
         }
     }
 
-    fn can_place(&self, pos: bevy_ecs_tilemap::TilePos, map_query: &MapQuery) -> bool {
+    fn can_place(&self, pos: TilePos) -> bool {
+        /*
         match self {
             PlacableTile::Radish |
             PlacableTile::Carrot |
@@ -112,67 +114,46 @@ impl PlacableTile {
                 ).is_err()
             }
         }
+        */
+        true
     }
 
-    fn place_on_map(&self, commands: &mut Commands, pos: bevy_ecs_tilemap::TilePos, map_query: &mut MapQuery) {
-            if let PlacableTile::Fence = self {
-                if map_query.get_tile_entity(
-                    pos,
-                    0u16,
-                    GameLayer::Fences
-                ).is_ok() {
-                    map_query.despawn_tile(
-                        commands,
-                        pos,
-                        0u16,
-                        GameLayer::Fences
-                    );
-                    map_query.notify_chunk_for_tile(pos, 0u16, GameLayer::Fences);
-                    return
-                }
+    fn place_on_map(&self, commands: &mut Commands, pos: TilePos) -> (Entity, String) {
+        let mut e = commands.spawn();
+        let (spawner, sprite) = match self {
+            PlacableTile::Radish => {
+                (
+                e.insert(GameLayer::Plants)
+                 .insert(Plant(1))
+                 .insert(RoundsTillMature(1)),
+                 "radish".to_string()
+                )
             }
-
-            let e = map_query.set_tile(
-                commands,
-                pos,
-                Tile {
-                    texture_index: match self {
-                        PlacableTile::Radish => 4,
-                        PlacableTile::Carrot => 3,
-                        PlacableTile::Pumpkin => 2,
-                        PlacableTile::Fence => 0,
-                    },
-                    ..Default::default()
-                },
-                0u16,
-                match self {
-                    PlacableTile::Radish |
-                    PlacableTile::Carrot |
-                    PlacableTile::Pumpkin => GameLayer::Plants,
-                    PlacableTile::Fence => GameLayer::Fences,
-                }
-            ).unwrap();
-            match self {
-                PlacableTile::Radish=> {
-                    commands.entity(e).insert(Plant(1));
-                    commands.entity(e).insert(RoundsTillMature(1));
-                    map_query.notify_chunk_for_tile(pos, 0u16, GameLayer::Plants);
-                }
-                PlacableTile::Carrot => {
-                    commands.entity(e).insert(Plant(3));
-                    commands.entity(e).insert(RoundsTillMature(2));
-                    map_query.notify_chunk_for_tile(pos, 0u16, GameLayer::Plants);
-                }
-                PlacableTile::Pumpkin => {
-                    commands.entity(e).insert(Plant(9));
-                    commands.entity(e).insert(RoundsTillMature(4));
-                    map_query.notify_chunk_for_tile(pos, 0u16, GameLayer::Plants);
-                }
-                PlacableTile::Fence => {
-                    commands.entity(e).insert(Fence);
-                    map_query.notify_chunk_for_tile(pos, 0u16, GameLayer::Fences);
-                }
+            PlacableTile::Carrot => {
+                (
+                e.insert(GameLayer::Plants)
+                 .insert(Plant(2))
+                 .insert(RoundsTillMature(2)),
+                "carrot".to_string()
+                )
             }
+            PlacableTile::Pumpkin => {
+                (
+                e.insert(GameLayer::Plants)
+                 .insert(Plant(6))
+                 .insert(RoundsTillMature(4)),
+                "pumpkin".to_string()
+                )
+            }
+            PlacableTile::Fence => {
+                (
+                e.insert(GameLayer::Fences)
+                 .insert(Fence),
+                 "fence".to_string()
+                )
+            }
+        };
+        (spawner.insert(pos).id(), sprite)
     }
 }
 
@@ -238,10 +219,12 @@ fn spawn_overlay(
 fn despawn_overlay(
     mut commands: Commands,
     query: Query<Entity, With<GameOverlay>>,
+    mut first_click_supressor: ResMut<FirstClickSupressor>,
 ) {
     for e in query.iter() {
         commands.entity(e).despawn_recursive();
     }
+    first_click_supressor.0 = false;
 }
 
 fn quit_to_menu(
@@ -267,13 +250,20 @@ fn track_cursor(
 
 #[derive(Default)]
 struct PendingPlacement(Option<Vec2>);
+#[derive(Default)]
+struct FirstClickSupressor(bool);
 fn track_click_events(
     mut mouse_button_input_events: EventReader<MouseButtonInput>,
     cursor_position: Res<CursorPosition>,
     mut pending_placement: ResMut<PendingPlacement>,
+    mut first_click_supressor: ResMut<FirstClickSupressor>,
 ) {
     for event in mouse_button_input_events.iter() {
         if event.button == MouseButton::Left && event.state == ElementState::Released {
+            if !first_click_supressor.0 {
+                first_click_supressor.0 = true;
+                continue
+            }
             pending_placement.0.replace(cursor_position.0);
         }
     }
@@ -285,29 +275,67 @@ fn place_tile(
     mut commands: Commands,
     textures: Res<TextureAssets>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    map_transform_query: Query<&Transform, With<Map>>,
     mut queue: ResMut<TileQueue>,
-    mut map_query: MapQuery,
     placables_query: Query<&PlacableTile>,
     mut state: ResMut<State<TurnState>>,
     mut pending_placement: ResMut<PendingPlacement>,
-) {
+) -> Result<Vec<(Entity, String)>> {
+    let mut to_spawn = vec![];
     if let Some(click_pos) = pending_placement.0.take() {
-        if let Ok(t) = map_transform_query.single() {
-            let tile = ((click_pos - t.translation.truncate()) / TILE_SIZE as f32).floor();
-            if tile.x > 1.0 && tile.x < MAP_SIZE as f32-2.0 && tile.y > 1.0 && tile.y < MAP_SIZE as f32-2.0 {
-                if let Ok(placable_tile) = placables_query.get(queue.0[0]) {
-                    let pos = bevy_ecs_tilemap::TilePos(tile.x as u32, tile.y as u32);
-                    if placable_tile.can_place(pos, &map_query) {
-                        let placable_entity = queue.0.remove(0);
-                        let e = PlacableTile::spawn_random(&mut commands, &textures, &mut materials, &mut thread_rng());
-                        queue.0.push(e);
-                        placable_tile.place_on_map(&mut commands, pos, &mut map_query);
-                        commands.entity(placable_entity).despawn_recursive();
-                        state.set(TurnState::PestTurnA);
-                    }
+        let mut tile = (click_pos / TILE_SIZE as f32 + Vec2::splat(MAP_SIZE as f32 / 2.0)).floor();
+        tile.y += 1.0;
+        if tile.x > 1.0 && tile.x < MAP_SIZE as f32-2.0 && tile.y > 1.0 && tile.y < MAP_SIZE as f32-2.0 {
+            if let Ok(placable_tile) = placables_query.get(queue.0[0]) {
+                let pos = TilePos(IVec2::new(tile.x as i32, tile.y as i32));
+                if placable_tile.can_place(pos) {
+                    let placable_entity = queue.0.remove(0);
+                    let e = PlacableTile::spawn_random(&mut commands, &textures, &mut materials, &mut thread_rng());
+                    queue.0.push(e);
+                    to_spawn.push(placable_tile.place_on_map(&mut commands, pos));
+                    commands.entity(placable_entity).despawn_recursive();
+                    state.set(TurnState::PestTurnA);
                 }
             }
         }
     }
+    Ok(to_spawn)
 }
+
+struct DesiredSprite(String);
+fn spawn_tile_sprites(
+    In(to_spawn): In<Result<Vec<(Entity, String)>>>,
+    mut commands: Commands,
+    textures: Res<TextureAssets>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+) {
+    if let Ok(to_spawn) = to_spawn {
+        for (e, desired_sprite) in &to_spawn {
+            let handle = match desired_sprite.as_str() {
+                "radish" => textures.radish.clone(),
+                "carrot" => textures.carrot.clone(),
+                "pumpkin" => textures.pumpkin.clone(),
+                "fence" => textures.fence_tiles.clone(),
+                _ => unimplemented!()
+            };
+            if desired_sprite == "fence" {
+                let texture_atlas = TextureAtlas::from_grid(handle, Vec2::new(86.0, 86.0), 4, 4);
+                let texture_atlas_handle = texture_atlases.add(texture_atlas);
+                commands.entity(*e).insert_bundle(SpriteSheetBundle {
+                    texture_atlas: texture_atlas_handle,
+                    transform: Transform::from_xyz(0.0, 0.0, 1.0),
+                    ..Default::default()
+                })
+                .remove::<DesiredSprite>();
+            } else {
+                commands.entity(*e).insert_bundle(SpriteBundle {
+                    material: materials.add(handle.into()),
+                    transform: Transform::from_xyz(0.0, 0.0, 1.0),
+                    ..Default::default()
+                })
+                .remove::<DesiredSprite>();
+            }
+        }
+    }
+}
+

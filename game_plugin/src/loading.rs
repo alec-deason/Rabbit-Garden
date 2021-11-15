@@ -36,14 +36,18 @@ pub struct TextureAssets {
     pub texture_tiles: Handle<Texture>,
     #[asset(path = "textures/pumpkin.png")]
     pub pumpkin: Handle<Texture>,
+    #[asset(path = "textures/wind.png")]
+    pub wind: Handle<Texture>,
     #[asset(path = "textures/radish.png")]
     pub radish: Handle<Texture>,
     #[asset(path = "textures/carrot.png")]
     pub carrot: Handle<Texture>,
     #[asset(path = "textures/fence.png")]
     pub fence: Handle<Texture>,
+    #[asset(path = "textures/rabbit.png")]
+    pub rabbit: Handle<Texture>,
     #[asset(path = "textures/fence_tiles.png")]
-    pub texture_fence_tiles: Handle<Texture>,
+    pub fence_tiles: Handle<Texture>,
     #[asset(path = "textures/overlay.png")]
     pub overlay: Handle<Texture>,
     #[asset(path = "textures/underlay.png")]
